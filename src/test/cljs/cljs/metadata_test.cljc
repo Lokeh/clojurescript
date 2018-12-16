@@ -66,8 +66,39 @@
           coll (with-meta (conj coll :k) m)]
       (is (= m (meta (disj coll :k)))))))
 
+(defn fn-interface-tests [f args]
+  (testing "fns can have metadata"
+    (is #?(:clj  (instance? clojure.lang.IObj f)
+           :cljs (satisfies? IMeta f)))
+    (let [m {:meta :data}]
+      (is (= m (meta (with-meta f m))))))
+  (testing "with-meta preserves original function behavior"
+    (let [mf (with-meta f {})]
+      (is (= (apply f args) (apply mf args)))))
+  (testing "with-meta return value implements normal function protocols"
+    (let [mf (with-meta f {})]
+      (is (satisfies? Fn mf))
+      (is (= "function" (goog/typeOf mf))))))
+
+(defn arity-example
+  ([a] a)
+  ([a b] (+ a b)))
 
 (deftest metadata-tests
+  (testing "Function"
+    (testing "Anonymous fn"
+      (fn-interface-tests (fn []) [])
+      (fn-interface-tests #(str "foo") []))
+    (testing "Multi-arity"
+      (fn-interface-tests arity-example [1]) 
+      (fn-interface-tests arity-example [1 2]))
+    (testing "Varargs"
+      (let [vararg #(-> %&)]
+      (fn-interface-tests vararg [0 1 2 3])
+      (testing "Varargs rest"
+        (is (= (apply vararg 0 1 2 (range 30))
+               (apply (with-meta vararg {}) 0 1 2 (range 30))))))))
+
   (testing "Collection"
     (testing "PersistentVector"
       (testing "Empty"
